@@ -47,27 +47,6 @@ Bundle path:
 
 `./dist/PrintScreenApp.app`
 
-## Publish To GitHub
-
-If this folder is already connected to a remote, push normally:
-
-```bash
-git add .
-git commit -m "Initial release: PrintScreenApp"
-git push
-```
-
-If you are creating a new GitHub repo:
-
-```bash
-git init
-git add .
-git commit -m "Initial release: PrintScreenApp"
-git branch -M main
-git remote add origin <YOUR_GITHUB_REPO_URL>
-git push -u origin main
-```
-
 ## Optional: launch at login
 
 1. Build the `.app` bundle.
