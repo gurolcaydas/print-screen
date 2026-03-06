@@ -1,6 +1,6 @@
 # Print Screen App (macOS)
 
-A tiny macOS app that listens for one global keyboard shortcut and saves a full-screen PNG on your Desktop with this format:
+A tiny macOS app that listens for one global keyboard shortcut and saves a full-screen PNG with this format:
 
 `print-screen-YYYY-MM-DD-HH-mm-ss.png`
 
@@ -30,7 +30,7 @@ swift run
 
 Keep it running in the foreground/background. Press `Control + Option + P` anytime to capture your full screen.
 
-By default screenshots go to `Desktop`, but users can change the target folder from the app menu.
+By default screenshots go to `~/Pictures/PrintScreenApp` (created automatically), but users can change the target folder from the app menu.
 
 ## Build release binary
 

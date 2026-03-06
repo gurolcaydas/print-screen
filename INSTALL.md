@@ -7,7 +7,7 @@ This guide shows how to install and run **PrintScreenApp** on macOS.
 - Runs as a small menu bar utility.
 - Captures full screen with one shortcut: `Control + Option + P`.
 - Saves file as: `print-screen-YYYY-MM-DD-HH-mm-ss.png`.
-- Default target folder is `Desktop`; users can change target folder from the app menu.
+- Default target folder is `~/Pictures/PrintScreenApp`; users can change target folder from the app menu.
 
 ## Requirements
 

@@ -1,6 +1,9 @@
 import AppKit
 import Carbon.HIToolbox
+import CoreGraphics
 import Foundation
+import ImageIO
+import UniformTypeIdentifiers
 import UserNotifications
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -8,12 +11,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         static let hotKeyID: UInt32 = 1
         static let hotKeySignature: OSType = OSType(0x50534E50) // 'PSNP'
         static let targetFolderDefaultsKey = "targetFolderPath"
+        static let defaultFolderName = "PrintScreenApp"
     }
 
     private var hotKeyRef: EventHotKeyRef?
     private var hotKeyHandler: EventHandlerRef?
     private var statusItem: NSStatusItem?
     private var targetFolderMenuItem: NSMenuItem?
+    private var didShowScreenRecordingAlertThisLaunch = false
 
     // Current shortcut: Control + Option + P
     private let hotKeyCode: UInt32 = UInt32(kVK_ANSI_P)
@@ -42,7 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = item.button {
             button.title = "PS"
-            button.toolTip = "Print Screen App"
+            button.toolTip = "PrintScreenApp"
         }
 
         let menu = NSMenu()
@@ -71,7 +76,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc
     private func showAbout() {
         let alert = NSAlert()
-        alert.messageText = "Print Screen App"
+        alert.messageText = "PrintScreenApp"
         alert.informativeText = "Free app made by Gürol Çaydaş."
         alert.addButton(withTitle: "OK")
         alert.alertStyle = .informational
@@ -176,21 +181,75 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Keep the UI responsive while the screenshot command runs.
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let task = Process()
-            task.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-            task.arguments = ["-x", outputURL.path]
+            guard let cgImage = CGWindowListCreateImage(
+                .infinite,
+                .optionOnScreenOnly,
+                kCGNullWindowID,
+                [.bestResolution]
+            ) else {
+                let hasAccess = self?.currentScreenRecordingAccessState() ?? false
+                let runtimeIdentity = self?.currentRuntimeIdentity() ?? "(unknown runtime identity)"
+                self?.showScreenRecordingPermissionAlert()
+                self?.showErrorNotification(message: "Unable to capture screen image. Screen Recording access is \(hasAccess ? "granted" : "denied") for \(runtimeIdentity).")
+                return
+            }
 
             do {
-                try task.run()
-                task.waitUntilExit()
-
-                if task.terminationStatus == 0 {
-                    self?.showCaptureNotification(filename: filename)
-                } else {
-                    self?.showErrorNotification(message: "screencapture failed with status \(task.terminationStatus)")
-                }
+                try self?.savePNGImage(cgImage, to: outputURL)
+                self?.showCaptureNotification(filename: filename)
             } catch {
-                self?.showErrorNotification(message: error.localizedDescription)
+                self?.showErrorNotification(message: "Failed to save screenshot: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func savePNGImage(_ image: CGImage, to outputURL: URL) throws {
+        guard let destination = CGImageDestinationCreateWithURL(
+            outputURL as CFURL,
+            UTType.png.identifier as CFString,
+            1,
+            nil
+        ) else {
+            throw NSError(domain: "PrintScreenApp", code: 1, userInfo: [NSLocalizedDescriptionKey: "Could not create PNG destination."])
+        }
+
+        CGImageDestinationAddImage(destination, image, nil)
+        if !CGImageDestinationFinalize(destination) {
+            throw NSError(domain: "PrintScreenApp", code: 2, userInfo: [NSLocalizedDescriptionKey: "Could not finalize PNG file."])
+        }
+    }
+
+    private func currentScreenRecordingAccessState() -> Bool {
+        if #available(macOS 10.15, *) {
+            return CGPreflightScreenCaptureAccess()
+        }
+        return true
+    }
+
+    private func currentRuntimeIdentity() -> String {
+        let bundleID = Bundle.main.bundleIdentifier ?? "(no bundle id)"
+        let bundlePath = Bundle.main.bundlePath
+        return "\(bundleID) @ \(bundlePath)"
+    }
+
+    private func showScreenRecordingPermissionAlert() {
+        if didShowScreenRecordingAlertThisLaunch {
+            return
+        }
+        didShowScreenRecordingAlertThisLaunch = true
+
+        DispatchQueue.main.async {
+            let alert = NSAlert()
+            alert.messageText = "Screen Recording permission required"
+            alert.informativeText = "Enable Screen Recording for this app in System Settings -> Privacy & Security -> Screen Recording, then restart the app."
+            alert.addButton(withTitle: "Open Settings")
+            alert.addButton(withTitle: "OK")
+            alert.alertStyle = .warning
+
+            let response = alert.runModal()
+            if response == .alertFirstButtonReturn,
+               let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+                NSWorkspace.shared.open(url)
             }
         }
     }
@@ -204,8 +263,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        return FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Desktop", isDirectory: true)
+        let defaultURL = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Pictures", isDirectory: true)
+            .appendingPathComponent(Constants.defaultFolderName, isDirectory: true)
+
+        do {
+            try FileManager.default.createDirectory(at: defaultURL, withIntermediateDirectories: true)
+        } catch {
+            NSLog("Failed to create default target folder at \(defaultURL.path): \(error.localizedDescription)")
+        }
+
+        return defaultURL
     }
 
     private func refreshTargetFolderMenuTitle() {
@@ -227,7 +295,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showStartupNotification() {
-        postNotification(title: "Print Screen App", body: "Ready. Press Control + Option + P to capture the screen.")
+        postNotification(title: "PrintScreenApp", body: "Ready. Press Control + Option + P to capture the screen.")
     }
 
     private func showCaptureNotification(filename: String) {

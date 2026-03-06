@@ -3,8 +3,9 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_NAME="PrintScreenApp"
+BUILD_PRODUCT_NAME="PrintScreenApp"
 BUNDLE_NAME="${APP_NAME}.app"
-BUILD_BIN="${ROOT_DIR}/.build/release/${APP_NAME}"
+BUILD_BIN="${ROOT_DIR}/.build/release/${BUILD_PRODUCT_NAME}"
 DIST_DIR="${ROOT_DIR}/dist"
 APP_DIR="${DIST_DIR}/${BUNDLE_NAME}"
 CONTENTS_DIR="${APP_DIR}/Contents"
@@ -56,11 +57,6 @@ cat > "${PLIST_PATH}" <<'PLIST'
 </dict>
 </plist>
 PLIST
-
-# Ad-hoc sign to reduce launch friction on modern macOS.
-if command -v codesign >/dev/null 2>&1; then
-  codesign --force --deep --sign - "${APP_DIR}" >/dev/null 2>&1 || true
-fi
 
 echo "Done: ${APP_DIR}"
 echo "Open it with: open \"${APP_DIR}\""
