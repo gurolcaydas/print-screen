@@ -14,10 +14,5 @@ DerivedData/
 # Build outputs
 /dist/
 
-# Python leftovers (optional tooling)
-.venv/
-__pycache__/
-*.pyc
-
 # macOS filesystem
 .DS_Store
