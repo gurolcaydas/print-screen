@@ -1,0 +1,23 @@
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# macOS / Xcode
+DerivedData/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcuserdatad/
+*.xcuserstate
+
+# Build outputs
+/dist/
+
+# Python leftovers (optional tooling)
+.venv/
+__pycache__/
+*.pyc
+
+# macOS filesystem
+.DS_Store
