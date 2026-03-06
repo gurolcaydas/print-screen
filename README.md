@@ -10,6 +10,12 @@ Current shortcut:
 
 `Control + Option + P`
 
+Menu features:
+
+- `About` (shows app credit)
+- `Set Target Folder` (change where screenshots are saved)
+- `Open Target Folder`
+
 ## Requirements
 
 - macOS 13+
@@ -23,6 +29,8 @@ swift run
 ```
 
 Keep it running in the foreground/background. Press `Control + Option + P` anytime to capture your full screen.
+
+By default screenshots go to `Desktop`, but users can change the target folder from the app menu.
 
 ## Build release binary
 

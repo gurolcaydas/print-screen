@@ -7,11 +7,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private enum Constants {
         static let hotKeyID: UInt32 = 1
         static let hotKeySignature: OSType = OSType(0x50534E50) // 'PSNP'
+        static let targetFolderDefaultsKey = "targetFolderPath"
     }
 
     private var hotKeyRef: EventHotKeyRef?
     private var hotKeyHandler: EventHandlerRef?
     private var statusItem: NSStatusItem?
+    private var targetFolderMenuItem: NSMenuItem?
 
     // Current shortcut: Control + Option + P
     private let hotKeyCode: UInt32 = UInt32(kVK_ANSI_P)
@@ -44,10 +46,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let menu = NSMenu()
+        menu.addItem(NSMenuItem(title: "About", action: #selector(showAbout), keyEquivalent: ""))
+        menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Capture Screen (Ctrl+Option+P)", action: #selector(captureFromMenu), keyEquivalent: ""))
+        targetFolderMenuItem = NSMenuItem(title: "", action: #selector(selectTargetFolder), keyEquivalent: "")
+        if let targetFolderMenuItem {
+            menu.addItem(targetFolderMenuItem)
+        }
+        menu.addItem(NSMenuItem(title: "Open Target Folder", action: #selector(openTargetFolder), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(quitApp), keyEquivalent: "q"))
         menu.items.forEach { $0.target = self }
+        refreshTargetFolderMenuTitle()
 
         item.menu = menu
         statusItem = item
@@ -56,6 +66,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc
     private func captureFromMenu() {
         captureScreen()
+    }
+
+    @objc
+    private func showAbout() {
+        let alert = NSAlert()
+        alert.messageText = "Print Screen App"
+        alert.informativeText = "Free app made by Gürol Çaydaş."
+        alert.addButton(withTitle: "OK")
+        alert.alertStyle = .informational
+        alert.runModal()
+    }
+
+    @objc
+    private func selectTargetFolder() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose Target Folder"
+        panel.message = "Screenshots will be saved in this folder."
+        panel.prompt = "Choose"
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+        panel.directoryURL = currentTargetFolderURL()
+
+        if panel.runModal() == .OK, let selectedURL = panel.url {
+            UserDefaults.standard.set(selectedURL.path, forKey: Constants.targetFolderDefaultsKey)
+            refreshTargetFolderMenuTitle()
+            postNotification(title: "Target folder updated", body: selectedURL.path)
+        }
+    }
+
+    @objc
+    private func openTargetFolder() {
+        NSWorkspace.shared.open(currentTargetFolderURL())
     }
 
     @objc
@@ -127,9 +171,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         formatter.dateFormat = "yyyy-MM-dd-HH-mm-ss"
 
         let filename = "print-screen-\(formatter.string(from: Date())).png"
-        let desktopURL = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Desktop", isDirectory: true)
-        let outputURL = desktopURL.appendingPathComponent(filename)
+        let targetFolderURL = currentTargetFolderURL()
+        let outputURL = targetFolderURL.appendingPathComponent(filename)
 
         // Keep the UI responsive while the screenshot command runs.
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -150,6 +193,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.showErrorNotification(message: error.localizedDescription)
             }
         }
+    }
+
+    private func currentTargetFolderURL() -> URL {
+        if let savedPath = UserDefaults.standard.string(forKey: Constants.targetFolderDefaultsKey), !savedPath.isEmpty {
+            let savedURL = URL(fileURLWithPath: savedPath, isDirectory: true)
+            var isDirectory: ObjCBool = false
+            if FileManager.default.fileExists(atPath: savedURL.path, isDirectory: &isDirectory), isDirectory.boolValue {
+                return savedURL
+            }
+        }
+
+        return FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Desktop", isDirectory: true)
+    }
+
+    private func refreshTargetFolderMenuTitle() {
+        let folderPath = currentTargetFolderURL().path
+        targetFolderMenuItem?.title = "Set Target Folder (Current: \(folderPath))"
     }
 
     private func requestNotificationPermission() {
